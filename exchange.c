@@ -82,7 +82,7 @@ unsigned char EstadosSupervisao(enum estados *estado, unsigned char byte) // MET
             break;
 
         case A_RCV:
-            if (byte == C_SET || byte == C_UA)
+            if (byte == C_SET || byte == C_DISC || byte == C_UA || byte == C_RR0 || byte == C_RR1 || byte == C_REJ0 || byte == C_REJ1)
             {
                 *estado = C_RCV;
                 c = byte;
@@ -303,7 +303,7 @@ int lerTramasRR_REJ(int fd)
     return -1;
 }
 
-int TramaStuffing(int fd, unsigned char *buffer, int length)
+int TramaStuffing(int fd, unsigned char *buffer, int length) // esta funcao constroi o cabecalho da trama, calcula bcc2, stuffing dos dados e envia a trama pela porta serie
 {
     unsigned char frame[2 * length + 6];
 

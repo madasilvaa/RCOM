@@ -56,7 +56,7 @@ int openNonCanonical() //abrir a conexao (retirado do moodle!)
         exit(-1);
     }
 
-    printf("\nConexao iniciada.\n\n");
+    printf("\nINICIO\n\n");
     return fd;
 }
 
@@ -70,48 +70,54 @@ int closeNonCanonical(int fd)
 		exit(-1);
 	}
 
-    printf("\nA conexao foi terminada!\n");
+    printf("\nFIM\n");
 
     return close(fd);
 }
 
 //------------------------------- FUNCOES LL ------------------------------//
 
-int llopen(int port, int flag)
+int llopen(int port, int flag) // a flag pode ser: TRANSMITTER | RECEIVER
 {
-    dadosLinkLayer(port, flag); // os dados da linklayer
+    dadosLinkLayer(port, flag); // inicializa os dados da linklayer
 
-    int fd = openNonCanonical();
+    int fd = openNonCanonical(); //altera as configuracoes da porta serie para as que sao pretendidas
 
+    preparaAlarme(); // preparamos o alarme para ele ser utilizado no futuro.
 
     if(linklayer.flag == TRANSMITTER) // caso emissor
     {
+        printf("\n***FASE DO ESTABELECIMENTO DA LIGACAO***\n\n");
         do
         {
             if(enviaSET(fd) != -1)
             {
-                printf("\nA trama SET foi enviada corretamente!\n");
+                printf("\nTRANSMISSOR: A trama SET foi enviada corretamente!\n");
             }
             else
             {
-                printf("\nOcorreu um erro a enviar SET.\n");
+                printf("\nTRANSMISSOR: Ocorreu um erro a enviar SET.\n");
                 return -1;
             }
 
+            comecaAlarme(); // o alarme e acionado quando a trama set e enviada corretamente pelo transmissor.
 
             if(lerResposta(fd) != -1)
             {
-                printf("\nA trama UA foi recebida com sucesso!\n");
+                printf("\nTRANSMISSOR: A trama UA foi recebida com sucesso!\n");
             }
             else
             {
-                printf("\nOcorreu um erro na rececao da trama UA.\n");
+                printf("\nTRANSMISSOR: Ocorreu um erro na rececao da trama UA.\n");
                 return -1;
             }
         } while(linklayer.numTransmissions < MAX_TRANSMISSIONS && linklayer.alarm);
 
+            paraAlarme(); //o alarme para quando e recebida a trama UA, enviada pelo receptor
 
-        if(linklayer.numTransmissions >= MAX_TRANSMISSIONS) //se o numero de transmissoes ultrapassar o maximo, saimos do programa.
+        //*caso a resposta nao e recebida dentro do timeout estipulado, o set ira ser reenviado. caso o numero de reenvios atinja o maximo, o programa termina*
+
+        if(linklayer.numTransmissions >= MAX_TRANSMISSIONS)
         {
             return -1;
         }
@@ -121,23 +127,24 @@ int llopen(int port, int flag)
 
     else if(linklayer.flag == RECEIVER) //caso receptor
     {
+        printf("\n***FASE DO ESTABELECIMENTO DA LIGACAO***\n\n");
         if(lerComando(fd) != -1)
         {
-            printf("\nA trama SET foi recebida com sucesso.\n");
+            printf("\nRECEPTOR: A trama SET foi recebida com sucesso.\n");
         }
         else
         {
-            printf("\nOcorreu um erro na rececao da trama SET.\n");
+            printf("\nRECEPTOR: Ocorreu um erro na rececao da trama SET.\n");
             return -1;
         }
 
         if(enviaUA(fd) != -1)
         {
-            printf("\nA trama UA foi enviada com sucesso.\n");
+            printf("\nRECEPTOR: A trama UA foi enviada com sucesso.\n");
         }
         else
         {
-            printf("\nOcorreu um erro no envio da trama UA.\n");
+            printf("\nRECEPTOR: Ocorreu um erro no envio da trama UA.\n");
             return -1;
         }
     }
@@ -146,34 +153,39 @@ int llopen(int port, int flag)
     return fd;
 }
 
-int llclose(int fd)
+int llclose(int fd) // funcao que termina a ligacao com a porta serie
 {
 if(linklayer.flag == TRANSMITTER)
     {
+        printf("\n***FASE DO TERMINO DA LIGACAO***\n\n");
     do 
     {
+        // e efectuado o envio da trama DISC, de modo a terminar a ligacao
         if(enviaDISC(fd) != -1)
         {
-            printf("\nA trama DISC foi enviada corretamente!\n");
+            printf("\nTRANSMISSOR: A trama DISC foi enviada corretamente!\n");
         }
         else
         {
-            printf("\nOcorreu um erro a enviar DISC.\n");
+            printf("\nTRANSMISSOR: Ocorreu um erro a enviar DISC.\n");
             return -1;
         }
 
+        comecaAlarme();
 
+        // e efectuada a leitura da trama DISC enviada pelo receptor
         if(lerResposta(fd) != -1)
         {
-            printf("\nA trama UA foi recebida com sucesso!\n");
+            printf("\nTRANSMISSOR: A trama DISC foi recebida com sucesso!\n");
         }
         else
         {
-            printf("\nOcorreu um erro na rececao da trama DISC.\n");
+            printf("\nTRANSMISSOR: Ocorreu um erro na rececao da trama DISC.\n");
             return -1;
         }
     } while(linklayer.numTransmissions < MAX_TRANSMISSIONS && linklayer.alarm);
 
+        paraAlarme();
 
     if(linklayer.numTransmissions >= MAX_TRANSMISSIONS) //se o numero de transmissoes ultrapassar o maximo, saimos do programa.
     {
@@ -181,58 +193,62 @@ if(linklayer.flag == TRANSMITTER)
     }
     linklayer.numTransmissions = 0;
 
-    if(envia_ultimo_UA(fd) != -1)
+    if(envia_ultimo_UA(fd) != -1) // o transmissor informa o receptor que quer terminar a ligacao, enviando uma ultima trama UA
     {
-        printf("\nUA foi enviado.\n");
+        printf("\nTRANSMISSOR: A ultima trama UA (que encerra a ligacao) foi enviada!\n");
     }
     else
     {
-        printf("\nOcorreu um erro.\n");
+        printf("\nTRANSMISSOR: Ocorreu um erro no envio da ultima trama UA!\n");
         return -1;
     }
     }
 
     else if(linklayer.flag == RECEIVER)
     {
+        printf("\n***FASE DO TERMINO DA LIGACAO***\n\n");
+
         if(lerComando(fd) != -1)
         {
-            printf("\nA trama DISC foi recebida com sucesso.\n");
+            printf("\nRECEPTOR: A trama DISC foi recebida com sucesso.\n");
         }
         else
         {
-            printf("\nOcorreu um erro na rececao da trama DISC.\n");
+            printf("\nRECEPTOR: Ocorreu um erro na rececao da trama DISC.\n");
             return -1;
         }
 
         if(enviaDISC(fd) != -1)
         {
-            printf("\nA trama DISC foi enviada com sucesso.\n");
+            printf("\nRECEPTOR: A trama DISC foi enviada com sucesso.\n");
         }
         else
         {
-            printf("\nOcorreu um erro no envio da trama DISC.\n");
+            printf("\nRECEPTOR: Ocorreu um erro no envio da trama DISC.\n");
             return -1;
         }
 
-        if(enviaUA(fd) != -1)
+        if(lerComando(fd) != -1)
         {
-            printf("\nA trama UA foi enviada com sucesso.\n");
+            printf("\nRECEPTOR: A ultima trama UA foi recebida com sucesso.\n");
         }
         else
         {
-            printf("\nOcorreu um erro no envio da trama UA.\n");
+            printf("\nRECEPTOR: Ocorreu um erro na rececao da ultima trama UA.\n");
             return -1;
         }
     }
+    //quando a ultima trama UA e recebida pelo receptor, chama-se a funcao closeNonCanonical para repor as configuracoes da porta serie
 
     printf("\nA ligacao foi terminada!\n\n");
 
+    tiraAlarme();
     sleep(1); // para evitar erros de transmissao, damos sleep.
 
     return closeNonCanonical(fd);
 }
 
-int llread(int fd, char *buffer)
+int llread(int fd, char *buffer) // funcao que efetua a leitura dos dados ao longo do programa
 {
     int TamanhoDaTrama = 0;
     int TamanhoDaTramaDestuffed = 0;
@@ -256,13 +272,13 @@ int llread(int fd, char *buffer)
 
             unsigned char bcc2 = tramad[4];
             int i;
-            for(i = 5; i<TamanhoDaTramaDestuffed -7 + 5; i++)
+            for(i = 5; i < TamanhoDaTramaDestuffed -7 + 5; i++)
             {
                 bcc2 ^= tramad[i];
             }
 
             // Verificacao do calculo de BCC2
-            if(bcc2 != tramad[TamanhoDaTramaDestuffed-2])
+            if(bcc2 != tramad[TamanhoDaTramaDestuffed - 2])
             {
                 printf("\nOcorreu um erro no calculo de BCC2!\n");
                 
@@ -304,7 +320,7 @@ int llread(int fd, char *buffer)
                     buffer[TamanhoDoPacote++] = tramad[i];
                 }
 
-                // Enviar o RR correto
+                // Neste passo, enviamos o RR correto
                 if(controlo == C_I0)
                 {
                     if(enviaRR1(fd) == -1)
@@ -343,19 +359,21 @@ int llread(int fd, char *buffer)
     return TamanhoDoPacote;
 }
 
-int llwrite(int fd, char* buffer, int length)
+int llwrite(int fd, char* buffer, int length) // funcao que faz a escrita dos dados no decorrer do programa
 {
     do
     {
         // Envia a trama
-        if (TramaStuffing(fd, buffer, length))
+        if (TramaStuffing(fd, buffer, length) != -1)
         {
             printf("A trama foi enviada!\n");
         }
 
+        comecaAlarme();
 
         if(lerTramasRR_REJ(fd) == -1)
         {
+            paraAlarme();
             linklayer.alarm = 1;
             continue;
         }
