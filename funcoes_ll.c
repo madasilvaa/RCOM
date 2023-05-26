@@ -5,6 +5,19 @@ struct termios newtio;
 
 linkLayer linklayer;
 
+statistics initStatistics()
+{
+    statistics stats;
+    stats.numSentFramesI = 0;
+    stats.numReceivedFramesI = 0;
+    stats.numSentRR = 0;
+    stats.numReceivedRR = 0;
+    stats.numSentREJ = 0;
+    stats.numReceivedREJ = 0;
+
+    return stats;
+}
+
 void dadosLinkLayer(int port, int flag) // iniciar os dados da linklayer.
 {
     char porta[12];
@@ -15,6 +28,7 @@ void dadosLinkLayer(int port, int flag) // iniciar os dados da linklayer.
     linklayer.alarm = 0;
     linklayer.timeout = TIMEOUT;
     linklayer.sequenceNumber = 0;
+    linklayer.stats = initStatistics();
 }
 
 int openNonCanonical() //abrir a conexao (retirado do moodle!)
@@ -291,7 +305,7 @@ int llread(int fd, char *buffer) // funcao que efetua a leitura dos dados ao lon
                     }
                     else
                     {
-                        //linklayer.stats.numSentREJ++;
+                        linklayer.stats.numSentREJ++;
                         printf("A trama REJ0 foi enviada corretamente!\n");
                     }
                     
@@ -304,7 +318,7 @@ int llread(int fd, char *buffer) // funcao que efetua a leitura dos dados ao lon
                     }
                     else
                     {
-                        //linklayer.stats.numSentREJ++;
+                        linklayer.stats.numSentREJ++;
                         printf("A trama REJ1 foi enviada com sucesso!\n");
                     }
                 }
@@ -329,7 +343,7 @@ int llread(int fd, char *buffer) // funcao que efetua a leitura dos dados ao lon
                     }
                     else
                     {
-                        //linklayer.stats.numSentRR++;
+                        linklayer.stats.numSentRR++;
                         printf("A trama RR1 foi enviada com sucesso!\n");
                     }
                 }
@@ -341,7 +355,7 @@ int llread(int fd, char *buffer) // funcao que efetua a leitura dos dados ao lon
                     }
                     else
                     {
-                        //linklayer.stats.numSentRR++;
+                        linklayer.stats.numSentRR++;
                         printf("A trama RR0 foi enviada corretamente!\n");
                     }
                 }
@@ -391,4 +405,17 @@ int llwrite(int fd, char* buffer, int length) // funcao que faz a escrita dos da
     linklayer.numTransmissions=0;
     
     return length;
+}
+
+void displayStats()
+{
+	printf("\n\nEstatisticas:\n\n");
+	printf("Numero de tramas I enviadas: %d\n", linklayer.stats.numSentFramesI);
+	printf("Numero de tramas I recebidas: %d\n", linklayer.stats.numReceivedFramesI);
+	printf("Numero de timeouts: %d\n", linklayer.stats.numTimeouts);
+	printf("Numero de tramas RR enviadas: %d\n", linklayer.stats.numSentRR);
+	printf("Numero de tramas RR recebidas: %d\n", linklayer.stats.numReceivedRR);
+	printf("Numero de tramas REJ enviadas: %d\n", linklayer.stats.numSentREJ);
+	printf("Numero de tramas REJ recebidas: %d\n", linklayer.stats.numReceivedREJ);
+	printf("\n");
 }
